@@ -1,2027 +1,0 @@
-print "hallo world"
-library(rdd)
-library(MASS)
-library(RDD)
-mp<- function(x,eps=1e-006)#
-{#
-	x<-as.matrix(x)#
-	xsvd<-svd(x)#
-	diago<-xsvd$d[xsvd$d>eps]#
-	if(length(diago)==1)#
-	{#
-	xplus<-as.matrix(xsvd$v[,1])%*%t(as.matrix(xsvd$u[,1])/diago)#
-	}#
-	else#
-	{#
-xplus<-xsvd$v[,1:length(diago)]%*%diag(1/diago)%*%t(xsvd$u[,1:length(diago)])	#
-	}#
-	return(xplus)#
-}#
-trun<-function(prediktor,knot,orde)#
-{#
-	prediktor[prediktor<knot]<-knot#
-	b<-(prediktor-knot)^orde#
-	return(b)#
-}#
-selangkepercayaan<-function(data)#
-{#
-cat("\t    PROGRAM SELANG KEPERCAYAAN KURVA REGRESI SEMIPARAMETRIK\n\t BERDASARKAN ESTIMATOR SPLINE TRUNCATED PADA DATA LONGITUDINAL\n")#
-cat("**********************************************************************************\n")#
-	x<-data[,1]#
-	t<-data[,2]#
-	y<-data[,3]#
-	M<-length(y)#
-	p<-as.numeric(readline("Input orde : "))#
-	k<-as.numeric(readline("Input jumlah knot optimum : "))#
-	w<-rep(0,k)#
-	for(i in 1:k)#
-	{#
-		cat("Input titik knot optimum  ke-",i)#
-		w[i]<-as.numeric(readline(" = "))#
-	}#
-	#MENGHITUNG JUMLAH SUBJEK#
-	n=0#
-	for(i in 1:M)#
-	{#
-		if(data[i,2]==0)#
-		{#
-			i=1#
-			n=n+i#
-		}#
-	}#
-	cat("Jumlah Subjek : ",n,"\n")#
-	#MENGHITUNG JUMLAH PENGAMATAN SETIAP SUBYEK#
-	sp<-rep(0,(n+1))#
-	sp[1]<-0#
-	jp<-rep(0,n)#
-	for(i in 2:n)#
-	{#
-		s<-sp[i-1]+1#
-		repeat#
-		{#
-			s<-s+1#
-			if(t[s]<t[s-1])break#
-			g<-s#
-		}#
-		sp[i]<-g#
-		jp[i-1]<-sp[i]-sp[i-1]#
-	}#
-	jp[n]<-M-sum(jp[1:(n-1)])#
-	cat("=================================\nsubjek ke-\tjumlah pengamatan\n=================================\n")#
-	for( i in 1:n)#
-	cat(i,"\t\t", jp[i],"\n")#
-	v1<-matrix(0,M,p)#
-	for(i in 1:p)#
-		{	#
-			v1[,i]<-t^(i)#
-		}#
-	v2<-matrix(0,M,k)#
-	for(j in 1:k)#
-		{#
-			v2[,j]<-trun(t,w[j],p)#
-		}#
-	T=cbind(v1,v2)#
-	x1=rep(1,M)#
-	X=cbind(x1,x)#
-	C=cbind(X,T)#
-	ER<-matrix(0,M,1)#
-	c<-rep(0,(M+1))#
-	c[1]<-0#
-	for(i in 1:n)#
-	{#
-		c[i+1]<-sum(jp[1:i])#
-		ER[(c[i]+1):c[i+1],1]<-rep(i,jp[i])#
-	}#
-	vr=rep(0,n)#
-	z=1#
-	for(i in 1:n)#
-	{	#
-		zt=z+jp[i]-1#
-		vr[i]=var(data[(z:zt),3])#
-		z=zt+1#
-	}#
-	V=rep(0,M)#
-	for(i in 1:M)#
-	{#
-		V[i]=vr[ER[i,1]]#
-	}#
-	S=diag(V)#
-	W=solve(S)#
-	omega<-mp(t(C)%*%W%*%C)%*%t(C)%*%W%*%y#
-	ytopi=C%*%omega#
-	cat("omega:\n")#
-	print(omega)#
-	Asemi=C%*%mp(t(C)%*%W%*%C)%*%t(C)%*%W#
-	MSE<-(t(y-ytopi)%*%(y-ytopi))/(M)#
-	GCV<-MSE/((1/M)%*%(sum(diag(1-Asemi))))^2#
-	JKT<-t(y-(mean(y)))%*%(y-(mean(y)))#
-	JKG<-t(y-ytopi)%*%(y-ytopi)#
-	RK<-1-(JKG/JKT)#
-	cat("\n===========================================\n")#
-	cat("    MSE\t\t    GCV\t\t R-square\n")#
-	cat("===========================================\n")#
-	cat(MSE,"\t",GCV,"\t",RK,"\n\n")#
-	alfa<-as.numeric(readline("input nilai alfa yang diinginkan : "))#
-	error=y-ytopi#
-	#UJI NORMALITAS#
-	cat("==============\n UJI ASUMSI NORMALITAS ERROR\n=============\n")#
-	library(nortest)#
-	un=lillie.test(error)	#
-	d=as.numeric (un[2])#
-	if(d<alfa)#
-	{#
-	cat("Keputusan	: Data tidak normal karena p-value	=",d,"<",alfa,"\n\n")#
-	}#
-	else#
-	{#
-	cat("Keputusan	: Data normal karena p-value =",d,">",alfa,"\n\n")#
-	}#
-#===========================SELANGKEPERCAYAAN======================#	sigmatopi=(t(y-ytopi)%*%(y-ytopi))/(M-(2+p+k))#
-	ss=C%*%mp(t(C)%*%W%*%C)%*%t(C)#
-	Sij=sqrt(sigmatopi*diag(ss))#
-	yupper=ytopi+(qt(1-alfa/2,M-(2+p+k))*Sij)#
-	ylower=ytopi-(qt(1-alfa/2,M-(2+p+k))*Sij)#
-	data=data[order(data[,1],decreasing=FALSE),]#
-	x=data[,1]#
-	a=0#
-	for(i in 1:M)#
-	{#
-	if(x[i]==0)#
-	a=a+1#
-	}#
-	datace=data[1:a,]#
-	dataco=data[a+1:M,]#
-	dataco=dataco[1:(M-a),]#
-	tbtopi=ytopi[1:M]#
-	tbl=dataco[,3]#
-	tbltopi=tbtopi[1:119]#
-	cat("===================================================\n")#
-	cat("\t  Estimasi Balita Laki-laki\n")#
-	cat("===================================================\n")#
-	yytopil<-sort(unique(tbltopi))#
-	yupperl=yupper[1:119]#
-	ylowerl=ylower[1:119]#
-	lowerl<-sort(unique(ylowerl))#
-	upperl<-sort(unique(yupperl))#
-	cat("Usia \t Tinggi Badan \t Batas Bawah\t Batas Atas\n")#
-	for(G in 0:24)		#
-{#
-	cat(" ",G,"\t",yytopil[G+1],"\t",lowerl[G+1],"\t",upperl[G+1],"\n")#
-	}#
-	pdco=length(dataco[,3])#
-	sml=0#
-	skl=0#
-	for(i in 1:pdco)#
-		{		#
-		if(ylowerl[i]<=dataco[i,3]&&dataco[i,3]<=yupperl[i])sml=sml+		else skl=skl+1#
-		}#
-	cpl=(sml/pdco)*100#
-	cat("Jumlah pengamatan di dalam selang\t:",sml,"\n")#
-	cat("Jumlah pengamatan di luar selang\t:",skl,"\n")#
-	cat("Coverage Probability (CP)\t\t:",cpl,"%\n\n\n\n")#
-	tbp=datace[,3]#
-	tbptopi=tbtopi[120:252]#
-	cat("===================================================\n")#
-	cat("\t  Estimasi Balita Perempuan\n")#
-	cat("===================================================\n")#
-	yupperp=yupper[120:252]#
-	ylowerp=ylower[120:252]#
-	yytopip<-sort(unique(tbptopi))#
-	lowerp<-sort(unique(ylowerp))#
-	upperp<-sort(unique(yupperp))#
-	cat("Usia \t Tinggi Badan \t Batas Bawah\t Batas Atas\n")#
-	for(F in 0:24)#
-	{		#
-cat(" ",F," \t",yytopip[F+1],"\t",lowerp[F+1],"\t",upperp[F+1],"\n")#
-	}#
-	pdce=length(datace[,3])#
-	smp=0#
-	skp=0#
-	for(i in 1:pdce)#
-		{		#
-		if(ylowerp[i]<=datace[i,3]&&datace[i,3]<=yupperp[i])smp=smp+1#
-			else skp=skp+1#
-		}#
-	cpp=(smp/pdce)*100#
-	cat("Jumlah pengamatan di dalam selang\t:",smp,"\n")#
-	cat("Jumlah pengamatan di luar selang\t:",skp,"\n")#
-	cat("Coverage Probability (CP)\t\t:",cpp,"%\n")#
-	tp=datace[,2]#
-	stp=sort(tp)#
-	stbp=tbp[order(tp)]#
-	stbptopi<-tbptopi[order(tp)]#
-	syupperp=yupperp[order(tp)]#
-	sylowerp=ylowerp[order(tp)]#
-	win.graph()#
-	plot(stp,stbp,xlab="Usia",ylab="tinggi badan")#
-	lines(stp,stbptopi,type="l",col="blue",lwd=3)#
-	lines(stp,syupperp,type="l",col="black",lwd=2)#
-	lines(stp,sylowerp,type="l",col="black",lwd=2)#
-	title(main="PLOT USIA TERHADAP TINGGI BADAN BALITA PEREMPUAN ")	#
-	par(new=TRUE)#
-	tl=dataco[,2]#
-	stl=sort(tl)#
-	stbl=tbl[order(tl)]#
-	stbltopi<-tbltopi[order(tl)]#
-	syupperl=yupperl[order(tl)]#
-	sylowerl=ylowerl[order(tl)]#
-	win.graph()#
-	plot(stl,stbl,xlab="Usia",ylab="tinggi badan")#
-	lines(stl,stbltopi,type="l",col="red ",lwd=3)#
-	lines(stl,syupperl,type="l",col="black",lwd=2)#
-	lines(stl,sylowerl,type="l",col="black",lwd=2)#
-	title(main="PLOT USIA TERHADAP TINGGI BADAN BALITA LAKI-LAKI ")	#
-}#
-selangkepercayaan(Dataset)
-mp<- function(x,eps=1e-006)#
-{#
-	x<-as.matrix(x)#
-	xsvd<-svd(x)#
-	diago<-xsvd$d[xsvd$d>eps]#
-	if(length(diago)==1)#
-	{#
-	xplus<-as.matrix(xsvd$v[,1])%*%t(as.matrix(xsvd$u[,1])/diago)#
-	}#
-	else#
-	{#
-xplus<-xsvd$v[,1:length(diago)]%*%diag(1/diago)%*%t(xsvd$u[,1:length(diago)])	#
-	}#
-	return(xplus)#
-}
-trun<-function(prediktor,knot,orde)#
-{#
-	prediktor[prediktor<knot]<-knot#
-	b<-(prediktor-knot)^orde#
-	return(b)#
-}
-selangkepercayaan<-function(data)#
-{#
-cat("\t    PROGRAM SELANG KEPERCAYAAN KURVA REGRESI SEMIPARAMETRIK\n\t BERDASARKAN ESTIMATOR SPLINE TRUNCATED PADA DATA LONGITUDINAL\n")#
-cat("**********************************************************************************\n")
-x<-data[,1]#
-	t<-data[,2]#
-	y<-data[,3]#
-	M<-length(y)#
-	p<-as.numeric(readline("Input orde : "))#
-	k<-as.numeric(readline("Input jumlah knot optimum : "))
-w<-rep(0,k)#
-	for(i in 1:k)#
-	{#
-		cat("Input titik knot optimum  ke-",i)#
-		w[i]<-as.numeric(readline(" = "))#
-	}#
-	#MENGHITUNG JUMLAH SUBJEK#
-	n=0#
-	for(i in 1:M)#
-	{#
-		if(data[i,2]==0)#
-		{#
-			i=1#
-			n=n+i#
-		}#
-	}#
-	cat("Jumlah Subjek : ",n,"\n")#
-	#MENGHITUNG JUMLAH PENGAMATAN SETIAP SUBYEK#
-	sp<-rep(0,(n+1))#
-	sp[1]<-0#
-	jp<-rep(0,n)#
-	for(i in 2:n)#
-	{#
-		s<-sp[i-1]+1#
-		repeat#
-		{#
-			s<-s+1#
-			if(t[s]<t[s-1])break#
-			g<-s#
-		}#
-		sp[i]<-g#
-		jp[i-1]<-sp[i]-sp[i-1]#
-	}#
-	jp[n]<-M-sum(jp[1:(n-1)])#
-	cat("=================================\nsubjek ke-\tjumlah pengamatan\n=================================\n")
-for( i in 1:n)#
-	cat(i,"\t\t", jp[i],"\n")#
-	v1<-matrix(0,M,p)#
-	for(i in 1:p)#
-		{	#
-			v1[,i]<-t^(i)#
-		}#
-	v2<-matrix(0,M,k)#
-	for(j in 1:k)#
-		{#
-			v2[,j]<-trun(t,w[j],p)#
-		}#
-	T=cbind(v1,v2)#
-	x1=rep(1,M)#
-	X=cbind(x1,x)#
-	C=cbind(X,T)#
-	ER<-matrix(0,M,1)#
-	c<-rep(0,(M+1))#
-	c[1]<-0#
-	for(i in 1:n)#
-	{#
-		c[i+1]<-sum(jp[1:i])#
-		ER[(c[i]+1):c[i+1],1]<-rep(i,jp[i])#
-	}#
-	vr=rep(0,n)#
-	z=1#
-	for(i in 1:n)#
-	{	#
-		zt=z+jp[i]-1#
-		vr[i]=var(data[(z:zt),3])#
-		z=zt+1#
-	}#
-	V=rep(0,M)#
-	for(i in 1:M)#
-	{#
-		V[i]=vr[ER[i,1]]#
-	}#
-	S=diag(V)#
-	W=solve(S)#
-	omega<-mp(t(C)%*%W%*%C)%*%t(C)%*%W%*%y#
-	ytopi=C%*%omega#
-	cat("omega:\n")#
-	print(omega)
-Asemi=C%*%mp(t(C)%*%W%*%C)%*%t(C)%*%W#
-	MSE<-(t(y-ytopi)%*%(y-ytopi))/(M)#
-	GCV<-MSE/((1/M)%*%(sum(diag(1-Asemi))))^2#
-	JKT<-t(y-(mean(y)))%*%(y-(mean(y)))#
-	JKG<-t(y-ytopi)%*%(y-ytopi)#
-	RK<-1-(JKG/JKT)#
-	cat("\n===========================================\n")#
-	cat("    MSE\t\t    GCV\t\t R-square\n")#
-	cat("===========================================\n")#
-	cat(MSE,"\t",GCV,"\t",RK,"\n\n")#
-	alfa<-as.numeric(readline("input nilai alfa yang diinginkan : "))#
-	error=y-ytopi#
-	#UJI NORMALITAS#
-	cat("==============\n UJI ASUMSI NORMALITAS ERROR\n=============\n")#
-	library(nortest)#
-	un=lillie.test(error)	#
-	d=as.numeric (un[2])#
-	if(d<alfa)#
-	{#
-	cat("Keputusan	: Data tidak normal karena p-value	=",d,"<",alfa,"\n\n")#
-	}#
-	else#
-	{#
-	cat("Keputusan	: Data normal karena p-value =",d,">",alfa,"\n\n")#
-	}#
-#===========================SELANGKEPERCAYAAN======================#	sigmatopi=(t(y-ytopi)%*%(y-ytopi))/(M-(2+p+k))#
-	ss=C%*%mp(t(C)%*%W%*%C)%*%t(C)#
-	Sij=sqrt(sigmatopi*diag(ss))#
-	yupper=ytopi+(qt(1-alfa/2,M-(2+p+k))*Sij)#
-	ylower=ytopi-(qt(1-alfa/2,M-(2+p+k))*Sij)#
-	data=data[order(data[,1],decreasing=FALSE),]#
-	x=data[,1]#
-	a=0#
-	for(i in 1:M)#
-	{#
-	if(x[i]==0)#
-	a=a+1#
-	}#
-	datace=data[1:a,]#
-	dataco=data[a+1:M,]#
-	dataco=dataco[1:(M-a),]#
-	tbtopi=ytopi[1:M]#
-	tbl=dataco[,3]#
-	tbltopi=tbtopi[1:119]#
-	cat("===================================================\n")
-cat("\t  Estimasi Balita Laki-laki\n")#
-	cat("===================================================\n")#
-	yytopil<-sort(unique(tbltopi))#
-	yupperl=yupper[1:119]#
-	ylowerl=ylower[1:119]#
-	lowerl<-sort(unique(ylowerl))#
-	upperl<-sort(unique(yupperl))#
-	cat("Usia \t Tinggi Badan \t Batas Bawah\t Batas Atas\n")#
-	for(G in 0:24)		#
-{#
-	cat(" ",G,"\t",yytopil[G+1],"\t",lowerl[G+1],"\t",upperl[G+1],"\n")#
-	}#
-	pdco=length(dataco[,3])#
-	sml=0#
-	skl=0#
-	for(i in 1:pdco)#
-		{		#
-		if(ylowerl[i]<=dataco[i,3]&&dataco[i,3]<=yupperl[i])sml=sml+		else skl=skl+1#
-		}#
-	cpl=(sml/pdco)*100#
-	cat("Jumlah pengamatan di dalam selang\t:",sml,"\n")#
-	cat("Jumlah pengamatan di luar selang\t:",skl,"\n")#
-	cat("Coverage Probability (CP)\t\t:",cpl,"%\n\n\n\n")#
-	tbp=datace[,3]#
-	tbptopi=tbtopi[120:252]#
-	cat("===================================================\n")#
-	cat("\t  Estimasi Balita Perempuan\n")#
-	cat("===================================================\n")
-y=(9.1 10.6 12 15.3 17.5 17.2)
-y=(9,1 10,6 12 15,3 17,5 17,2)
-y=(9.1,10.6,12,15.3,17.5,17.2)
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))
-print(X)
-XtX=t(X)*%*X#
-print(XtX)
-XtX=t(X)%*%X#
-print(XtX)
-Xty=t(X)%*%y#
-print(Xty)
-Xty=t(X)%*%data$y#
-print(Xty)
-i_XtX=solve(XtX)#
-print(i_XtX)
-beta=i_XtX%*%Xty#
-print(beta)
-model=lm(y~x1+x2+x3, data=data)
-print(model)
-summary(model)
-cov(data$y)
-cov(data)
-cov(beta)
-vcov(model)
-anova(model)
-plot(model)
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(model)
-plot(data$x1, data$y, main = "Hubungan X1 dan Y")#
-abline(model)  # garis regresi
-termplot(model)
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-vcov(model)#
-anova(model)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)
-fitted(model)
-fitted(model)#
-hatvalues(model)
-print(X%*%solve(t(X)%*%X)%*%t(X))
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-vcov(model)#
-anova(model)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-#
-e=Y-X%*%beta#
-#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-#
-e=Y-X%*%beta#
-#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-#
-e=Y-X%*%beta#
-e#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-#
-e=Y-X%*%beta#
-e#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-#
-e=Y-X%*%beta#
-e#
-print(X%*%beta)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-print(t(e)%*%e)
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-print(t(e)%*%e)#
-sigma2=(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-print(H)#
-fitted(model)#
-hatvalues(model)#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-fitted(model)#
-#
-print(X%*%solve(t(X)%*%X)%*%t(X))#
-#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-fitted(model)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum(ytopi-Y_mean)^2)#
-SSE=sum((Y - Ytopi)^2)#
-#
-SST#
-SSE#
-SSR
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum(ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-#
-SST#
-SSE#
-SSR
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum(ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR
-F=(SSR/(k-1))/(SSE/(n-(k+1)))#
-F
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-F
-data=data.frame(y=c(6,9,12,5,13,2),x1=c(3,6,4,8,3,2),x2=c(9,13,3,2,4,4),x3=c(16,13,17,10,9,7))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")#
-#
-plot(data$x3, data$y, main = "Y vs X3", xlab = "X3", ylab = "Y")#
-abline(lm(y ~ x3, data = data), col = "green")
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x1=c(1,4,9,11,3,8,5,10,2,7,6),x2=c(8,2,-8,-10,6,-6,0,-12,4,-2,4))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2,data$x3))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2+x3, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x1=c(1,4,9,11,3,8,5,10,2,7,6),x2=c(8,2,-8,-10,6,-6,0,-12,4,-2,4))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2)#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x1=c(1,4,9,11,3,8,5,10,2,7,6),x2=c(8,2,-8,-10,6,-6,0,-12,4,-2,4))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x1=c(1,4,9,11,3,8,5,10,2,7,6),x2=c(8,2,-8,-10,-6,-6,0,-12,4,-2,4))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x1=c(1,4,9,11,3,8,5,10,2,7,6),x2=c(8,2,-8,-10,6,-6,0,-12,4,-2,4))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")
-install.packages("readxl")
-library(readxl)
-library(readxl)#
-data=read_excel("/Users/nurkholifah/Downloads/no1.xlsx")#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")
-library(readxl)#
-data=read_excel("/Users/nurkholifah/Downloads/no2.xlsx")#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x1=c(1,4,9,11,3,8,5,10,2,7,6),x2=c(8,2,-8,-10,6,-6,0,-12,4,-2,4))#
-print(data)#
-X=as.matrix(cbind(1,data$x1,data$x2))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)#
-model=lm(y~x1+x2, data=data)#
-print(model)#
-summary(model)#
-print(X%*%beta)#
-e=Y-X%*%beta#
-e#
-print(t(e)%*%e)#
-# 6. Hitung sigma^2 = SSE / (n - k)#
-n <- nrow(X)#
-k <- ncol(X)#
-k#
-sigma2=as.numeric(t(e)%*%e/(n-k))#
-sigma2#
-# 7. Hitung kovarians beta#
-cov_beta <- sigma2*solve(t(X)%*%X)#
-cov_beta#
-vcov(model)#
-anova(model)#
-hatvalues(model)#
-H=X%*%solve(t(X)%*%X)%*%t(X)#
-print(H)#
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-fitted(model)#
-Y=data$y#
-Y_mean=mean(Y)#
-#
-# Hitung semua SS#
-SST=sum((Y-Y_mean)^2)#
-SSR=sum((ytopi-Y_mean)^2)#
-SSE=sum((Y-ytopi)^2)#
-SST#
-SSE#
-SSR#
-F=(SSR/(k-1))/(SSE/(n-k))#
-print(F)#
-par(mfrow = c(2, 2))  # biar semua tampil dalam satu jendela#
-plot(data$x1, data$y, main = "Y vs X1", xlab = "X1", ylab = "Y")#
-abline(lm(y ~ x1, data = data), col = "red")#
-#
-plot(data$x2, data$y, main = "Y vs X2", xlab = "X2", ylab = "Y")#
-abline(lm(y ~ x2, data = data), col = "blue")
-data=data.frame(y=c(6,8,1,0,5,3,2,-4,10,3,-5),x=c(1,4,9,11,3,8,5,10,2,7,6))#
-print(data)#
-X=as.matrix(cbind(1,data$x))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$y)#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y
-Y_mean=mean(Y)
-SSR=sum((ytopi-Y_mean)^2)
-SSR
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-#
-cov=cov(df)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-model_full <- lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X7 + X8 + X9, data = Ln)#
-summary(model_full)#
-anova(model_full)
-library(readxl)#
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-#
-cov=cov(df)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-model_full <- lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X7 + X8 + X9, data = Ln)#
-summary(model_full)#
-anova(model_full)
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-df#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-#
-cov=cov(df)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-model_full=lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X7 + X8 + X9, data = Ln)#
-summary(model_full)#
-anova(model_full)#
-model_1=update
-library(readxl)#
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-df#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-#
-cov=cov(df)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-model_full=lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X7 + X8 + X9, data = Ln)#
-summary(model_full)#
-anova(model_full)#
-model1=lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X8 + X9, data = Ln)#
-summary(model1)#
-anova(model1)
-model2=lm(Q ~ X1 + X2 + X3 + X5 + X6 + X8 + X9, data = Ln)#
-summary(model2)#
-anova(model2)
-model3=lm(Q ~ X1 + X3 + X5 + X6 + X8 + X9, data = Ln)#
-summary(model3)#
-anova(model3)
-model4=lm(Q ~ X1 + X3 + X6 + X8 + X9, data = Ln)#
-summary(model4)#
-anova(model4)
-anova(model1, model_full)
-anova(model2, model_full)
-anova(model3, model_full)#
-anova(model4, model_full)
-model_dogrusal=lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X7 + X8 + X9, data = df)#
-summary(model_dogrusal)#
-anova(model_dogrusal)
-par(mfrow=c(2,2))#
-plot(model4)#
-par(mfrow=c(1,1))
-library(lmtest)#
-bptest(model4)   # heteroskedastisitas#
-shapiro.test(resid(model4))  # normalitas
-install.packages("lmtest")
-library(lmtest)#
-bptest(model4)   # heteroskedastisitas#
-shapiro.test(resid(model4))  # normalitas
-IC(model_dogrusal, model_full)
-AIC(model_dogrusal, model_full)
-model5=lm(Q ~ X1 + X3 + X8 + X9, data = Ln)#
-summary(model5)#
-anova(model5, model_full)
-model5=lm(Q ~ X1 + X3 + X8 + X9, data = Ln)#
-summary(model5)#
-anova(model5)#
-anova(model5, model_full)
-model_full=lm(Q ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X7) + log(X8) + log(X9))#
-summary(model_full)#
-anova(model_full)
-model_full=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X7) + log(X8) + log(X9))#
-summary(model_full)#
-anova(model_full)
-library(readxl)#
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-df#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-#
-cov=cov(df)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-model_full=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X7) + log(X8) + log(X9))#
-summary(model_full)#
-anova(model_full)
-model_full=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X7) + log(X8) + log(X9), data=df)#
-summary(model_full)#
-anova(model_full)
-model1=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model1)#
-anova(model1)#
-anova(model1, model_full)#
-model2=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model2)#
-anova(model2)#
-anova(model2, model_full)#
-model3=lm(log(Q) ~ log(X1) + log(X3) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model3)#
-anova(model3)#
-anova(model3, model_full)#
-model4=lm(log(Q) ~ log(X1) + log(X3) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model4)#
-anova(model4)#
-anova(model4, model_full)#
-model5=lm(log(Q) ~ log(X1) + log(X3) + log(X8) + log(X9), data = df)#
-summary(model5)#
-anova(model5)#
-anova(model5, model_full)#
-model_dogrusal=lm(Q ~ X1 + X2 + X3 + X4 + X5 + X6 + X7 + X8 + X9, data = df)#
-summary(model_dogrusal)#
-anova(model_dogrusal)#
-AIC(model_dogrusal, model_full)#
-par(mfrow=c(2,2))#
-plot(model4)#
-par(mfrow=c(1,1))#
-library(lmtest)#
-bptest(model4)   # heteroskedastisitas#
-shapiro.test(resid(model4))  # normalitas
-X=as.matrix(cbind(1,data$log(X1),data$log(X2),data$log(X3),data$log(X4),data$log(X5),data$log(X6),data$log(X7),data$log(X8),data$log(X9)))#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(data$log(Q))#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)
-X=as.matrix(cbind(1,df$log(X1),df$log(X2),df$log(X3),df$log(X4),df$log(X5),df$log(X6),df$log(X7),df$log(X8),df$log(X9)))#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(df$log(Q))#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)
-tes
-X=as.matrix(cbind(1,df$log(X1),df$log(X2),df$log(X3),df$log(X4),df$log(X5),df$log(X6),df$log(X7),df$log(X8),df$log(X9)))#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(df$log(Q))#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)
-X=as.matrix(cbind(1,df$log(X1),df$log(X2),df$log(X3),df$log(X4),df$log(X5),df$log(X6),df$log(X7),df$log(X8),df$log(X9)))
-X=as.matrix(cbind(1,log(df$X1),log(df$X2),log(df$X3),log(df$X4),log(df$X5),log(df$X6),log(df$X7),log(df$X8),log(df$X9)))#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(log(df$Q))#
-Xty=t(X)%*%Y#
-print(Xty)#
-i_XtX=solve(XtX)#
-print(i_XtX)#
-beta=i_XtX%*%Xty#
-print(beta)
-print(X)
-print(Y)
-round(i_XtX,4)
-round(Xty,4)
-round(beta,4)
-e2=t(Y-X%*%beta)%*%(Y-X%*%beta)#
-round(e2,4)
-model6=lm(log(Q) ~ log(X1) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model6)#
-anova(model6)#
-anova(model6, model_full)
-library(readxl)#
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-df#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-#
-X=as.matrix(cbind(1,log(df$X1),log(df$X2),log(df$X3),log(df$X4),log(df$X5),log(df$X6),log(df$X7),log(df$X8),log(df$X9)))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(log(df$Q))#
-print(Y)#
-Xty=t(X)%*%Y#
-round(Xty,4)#
-i_XtX=solve(XtX)#
-round(i_XtX,4)#
-beta=i_XtX%*%Xty#
-round(beta,4)#
-e2=t(Y-X%*%beta)%*%(Y-X%*%beta)#
-round(e2,4)#
-model_full=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X7) + log(X8) + log(X9), data=df)#
-summary(model_full)#
-anova(model_full)#
-#
-model1=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model1)#
-anova(model1)#
-anova(model1, model_full)#
-#
-model2=lm(log(Q) ~ log(X1) + log(X3)+ log(X4) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model2)#
-anova(model2)#
-anova(model2, model_full)#
-#
-model3=lm(log(Q) ~ log(X1) + log(X3) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model3)#
-anova(model3)#
-anova(model3, model_full)#
-#
-model4=lm(log(Q) ~ log(X1) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model4)#
-anova(model4)#
-anova(model4, model_full)#
-#
-model5=lm(log(Q) ~ log(X1) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model5)#
-anova(model5)#
-anova(model5, model_full)#
-#
-model6=lm(log(Q) ~ log(X1)  + log(X8) + log(X9), data = df)#
-summary(model6)#
-anova(model6)#
-anova(model6, model_full)
-model5=lm(log(Q) ~ log(X1) + log(X3)+ log(X6) + log(X8) + log(X9), data = df)#
-summary(model5)#
-anova(model5)#
-anova(model5, model_full)
-library(readxl)#
-df=read_excel("/Users/nurkholifah/Downloads/final.xlsx")#
-df#
-cor=cor(df)#
-round(cor, 4)#
-cor_Q=cor[, "Q"]#
-cor_Q=cor_Q[names(cor_Q) != "Q"]#
-sort(cor_Q, decreasing = TRUE)#
-Ln=log(df)#
-cor_Ln=cor(Ln)#
-#
-X=as.matrix(cbind(1,log(df$X1),log(df$X2),log(df$X3),log(df$X4),log(df$X5),log(df$X6),log(df$X7),log(df$X8),log(df$X9)))#
-print(X)#
-XtX=t(X)%*%X#
-print(XtX)#
-Y=as.matrix(log(df$Q))#
-print(Y)#
-Xty=t(X)%*%Y#
-round(Xty,4)#
-i_XtX=solve(XtX)#
-round(i_XtX,4)#
-beta=i_XtX%*%Xty#
-round(beta,4)#
-e2=t(Y-X%*%beta)%*%(Y-X%*%beta)#
-round(e2,4)#
-model_full=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X7) + log(X8) + log(X9), data=df)#
-summary(model_full)#
-anova(model_full)#
-#
-model1=lm(log(Q) ~ log(X1) + log(X2) + log(X3) + log(X4) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model1)#
-round(anova(model1),4)#
-anova(model1, model_full)
-ytopi=X%*%solve(t(X)%*%X)%*%t(X)%*%Y#
-ytopi#
-Y_mean=mean(Y)#
-SSR=sum((ytopi-Y_mean)^2)
-print(SSR)
-X1=as.matrix(cbind(1,log(df$X1),log(df$X2),log(df$X3),log(df$X4),log(df$X5),log(df$X6),log(df$X8),log(df$X9)))#
-print(X1)#
-X1tX1=t(X1)%*%X1#
-print(X1tX1)#
-X1ty=t(X1)%*%Y#
-round(X1ty,4)#
-i_X1tX1=solve(X1tX1)#
-round(i_X1tX1,4)#
-beta1=i_X1tX1%*%X1ty#
-round(beta,4)#
-e21=t(Y-X1%*%beta1)%*%(Y-X1%*%beta1)#
-round(e21,4)#
-ytopi1=X1%*%solve(t(X1)%*%X1)%*%t(X1)%*%Y#
-ytopi1#
-SSR1=sum((ytopi1-Y_mean)^2)#
-print(SSR1)
-SSE1=sum((Y-ytopi1)^2)#
-print(SSE1)
-X2=as.matrix(cbind(1,log(df$X1),log(df$X3),log(df$X4),log(df$X5),log(df$X6),log(df$X8),log(df$X9)))#
-print(X2)#
-X2tX2=t(X2)%*%X2#
-print(X2tX2)#
-X2ty=t(X2)%*%Y#
-round(X2ty,4)#
-i_X2tX2=solve(X2tX2)#
-round(i_X2tX2,4)#
-beta2=i_X2tX2%*%X2ty#
-ytopi2=X2%*%solve(t(X2)%*%X2)%*%t(X2)%*%Y#
-ytopi2#
-SSR2=sum((ytopi2-Y_mean)^2)#
-print(SSR2)#
-SSE2=sum((Y-ytopi2)^2)#
-print(SSE2)
-model3=lm(log(Q) ~ log(X1) + log(X3) + log(X5) + log(X6) + log(X8) + log(X9), data = df)#
-summary(model3)#
-anova(model3)#
-anova(model3, model_full)#
-X3=as.matrix(cbind(1,log(df$X1),log(df$X3),log(df$X5),log(df$X6),log(df$X8),log(df$X9)))#
-print(X3)#
-X3tX3=t(X3)%*%X3#
-print(X3tX3)#
-X3ty=t(X3)%*%Y#
-round(X3ty,4)#
-i_X3tX3=solve(X3tX3)#
-round(i_X3tX3,4)#
-beta3=i_X3tX3%*%X3ty#
-ytopi3=X2%*%solve(t(X3)%*%X3)%*%t(X3)%*%Y#
-SSR3=sum((ytopi3-Y_mean)^2)#
-print(SSR3)#
-SSE3=sum((Y-ytopi3)^2)#
-print(SSE3)
-X3=as.matrix(cbind(1,log(df$X1),log(df$X3),log(df$X5),log(df$X6),log(df$X8),log(df$X9)))#
-print(X3)#
-X3tX3=t(X3)%*%X3#
-print(X3tX3)#
-X3ty=t(X3)%*%Y#
-round(X3ty,4)#
-i_X3tX3=solve(X3tX3)#
-round(i_X3tX3,4)#
-beta3=i_X3tX3%*%X3ty#
-ytopi3=X3%*%solve(t(X3)%*%X3)%*%t(X3)%*%Y#
-SSR3=sum((ytopi3-Y_mean)^2)#
-print(SSR3)#
-SSE3=sum((Y-ytopi3)^2)#
-print(SSE3)
-X4=as.matrix(cbind(1,log(df$X1),log(df$X5),log(df$X6),log(df$X8),log(df$X9)))#
-print(X4)#
-X4tX4=t(X4)%*%X4#
-print(X4tX4)#
-X4ty=t(X4)%*%Y#
-round(X4ty,4)#
-i_X4tX4=solve(X4tX4)#
-round(i_X4tX4,4)#
-beta4=i_X4tX4%*%X4ty#
-ytopi4=X4%*%solve(t(X4)%*%X4)%*%t(X4)%*%Y#
-SSR4=sum((ytopi4-Y_mean)^2)#
-print(SSR4)#
-SSE4=sum((Y-ytopi4)^2)#
-print(SSE4)
-X5=as.matrix(cbind(1,log(df$X1),log(df$X3),log(df$X6),log(df$X8),log(df$X9)))#
-print(X5)#
-X5tX5=t(X5)%*%X5#
-print(X5tX5)#
-X5ty=t(X5)%*%Y#
-round(X5ty,4)#
-i_X5tX5=solve(X5tX5)#
-round(i_X5tX5,4)#
-beta5=i_X5tX5%*%X5ty#
-ytopi5=X5%*%solve(t(X5)%*%X5)%*%t(X5)%*%Y#
-SSR5=sum((ytopi5-Y_mean)^2)#
-print(SSR5)#
-SSE5=sum((Y-ytopi5)^2)#
-print(SSE5)
-install.packages(c("devtools", "roxygen2", "testthat", "usethis", "knitr", "rmarkdown"))#
-#
-library(devtools)#
-library(usethis)
-devtools::has_devel()
-usethis::create_package("/Users/nurkholifah/Downloads/Istatistiksel Programlama/istatistikPaketim")
-Package: istatistikPaketim#
-Title: Istatistiksel Programlama Ders Paketi#
-Version: 0.0.0.9000#
-Authors@R: #
-    person("Nurkholifah", email = "nurkholifah@posta.mu.edu.tr", role = c("aut", "cre"))#
-Description: Bu paket, Istatistiksel Programlama dersinde R ile paket gelistirme surecini ogrenmek amaciyla olusturulmustur.#
-License: MIT + file LICENSE#
-Encoding: UTF-8#
-Roxygen: list(markdown = TRUE)#
-RoxygenNote: 7.3.3
-usethis::use_mit_license("Nurkholifah")
-usethis::use_git()
-usethis::use_git_config(#
-  user.name = "Nurkholifah",#
-  user.email = "nkh.nurkholifah@gmail.com"#
-)
-usethis::use_git()
-usethis::use_github()
-usethis::edit_r_environ()
