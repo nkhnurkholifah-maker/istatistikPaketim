@@ -45,5 +45,5 @@ tespit_et_outlier(veri2, k = 1)
 }
 \seealso{
 \code{\link[stats:quantile]{quantile}},
-\code{\link[graphics:boxplot.stats]{boxplot.stats}}
+\code{\link[grDevices:boxplot.stats]{boxplot.stats}}
 }

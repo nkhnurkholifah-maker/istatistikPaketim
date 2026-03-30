@@ -1,11 +1,12 @@
+#' @importFrom graphics boxplot abline
 aykiri_deger_analizi<-function(veri,grafik=FALSE){
   #1) Giris Kontrolu
   if (!is.numeric(veri)||!is.vector(veri)){
-    stop("Hata: Lütfen sayısal bir veri giriniz!")
+    stop("Hata: Lutfen sayisal bir veri giriniz!")
   }
   #NA Kontrolu
   if(any(is.na(veri))) {
-    warning("Uyarı: Veride eksik değerler bulundu, bunlar analiz dıșı bırakıldı.")
+    warning("Uyari: Veride eksik degerler bulundu, bunlar analiz disi birakildi.")
     veri=veri[!is.na(veri)]
   }
   #2) Hesaplama (Tukey Yöntemi)
@@ -77,7 +78,7 @@ aykiri_deger_analizi<-function(veri,grafik=FALSE){
 #'
 #' @seealso
 #' \code{\link[stats:quantile]{quantile}},
-#' \code{\link[graphics:boxplot.stats]{boxplot.stats}}
+#' \code{\link[grDevices:boxplot.stats]{boxplot.stats}}
 #'
 #' @examples
 #' # Örnek 1: Normal dağılıma yakın veri
@@ -97,10 +98,10 @@ aykiri_deger_analizi<-function(veri,grafik=FALSE){
 #' 
 tespit_et_outlier<-function(x,k=1.5){
   if (!is.numeric(x)){
-    stop ("x sayısal bir vektör olmalıdır.")
+    stop ("x sayisal bir vektor olmalidir.")
   }
   if(!is.numeric(k)||length(k)!=1||is.na(k)||k<=0){
-    stop("k pozitif, tek bir sayısal değer olmalıdır.")
+    stop("k pozitif, tek bir sayisal deger olmalidir.")
   }
   Q1=as.numeric(quantile(x, probs=0.25,na.rm=TRUE,names=FALSE))
   Q3=as.numeric(quantile(x, probs=0.75,na.rm=TRUE,names=FALSE))
