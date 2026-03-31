@@ -5,6 +5,12 @@
 #' @param tur Karakter. Tür filtresi (opsiyonel).
 #' @return ggplot nesnesi
 #' @importFrom rlang .data
+#' @examples
+#' # Tüm penguenler için grafik
+#' penguen_grafik()
+#'
+#' # Sadece Adelie türü için
+#' penguen_grafik("Adelie")
 #' @export
 penguen_grafik <- function(tur = NULL) {
 

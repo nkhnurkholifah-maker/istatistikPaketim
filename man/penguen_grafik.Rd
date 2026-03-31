@@ -15,3 +15,10 @@ ggplot nesnesi
 \description{
 Penguen türlerine göre gaga uzunluğu dağılımını gösterir.
 }
+\examples{
+# Tüm penguenler için grafik
+penguen_grafik()
+
+# Sadece Adelie türü için
+penguen_grafik("Adelie")
+}
