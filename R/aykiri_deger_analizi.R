@@ -1,15 +1,35 @@
+#' @title Outlier Analysis
+#' @description
+#' This function performs outlier analysis on a numeric vector using Tukey's method.
+#' It can also produce a boxplot if requested.
+#'
+#' @param veri A numeric vector.
+#' @param grafik A logical value. If TRUE, a boxplot is drawn.
+#'
+#' @return
+#' A list containing:
+#' \itemize{
+#'   \item \code{temizlenmis_veri}: The data after removing outliers.
+#'   \item \code{aykiri_degerler}: The detected outlier values.
+#'   \item \code{sinirlar}: A list containing the lower and upper bounds.
+#'   \item \code{ozet}: A list containing Q1, Q3, and IQR summary values.
+#' }
+#'
 #' @importFrom graphics boxplot abline
+#' @importFrom stats quantile
+#' @export
+
 aykiri_deger_analizi<-function(veri,grafik=FALSE){
   #1) Giris Kontrolu
   if (!is.numeric(veri)||!is.vector(veri)){
-    stop("Hata: Lutfen sayisal bir veri giriniz!")
+    stop("Error: Please provide a numeric vector.")
   }
   #NA Kontrolu
   if(any(is.na(veri))) {
-    warning("Uyari: Veride eksik degerler bulundu, bunlar analiz disi birakildi.")
+    warning("Warning: Missing values were found and removed from the analysis.")
     veri=veri[!is.na(veri)]
   }
-  #2) Hesaplama (Tukey Yöntemi)
+  #2) Hesaplama (Tukey Method)
   Q1=as.numeric(quantile(veri,0.25,names=FALSE,type=7))
   Q3=as.numeric(quantile(veri,0.75,names=FALSE,type=7))
   IQR_deger=Q3-Q1
@@ -22,23 +42,23 @@ aykiri_deger_analizi<-function(veri,grafik=FALSE){
   
   #4) Raporlama
   cat("******************************************************\n")
-  cat("\t\tAykırı Değer Analizi\n")
+  cat("\t\tOutlier Analysis\n")
   cat("******************************************************\n")
-  cat("Toplam gözlem (NA haric):", length(veri),"\n", sep = "")
+  cat("Total observations (excluding NA):", length(veri),"\n", sep = "")
   cat("Q1:",Q1,"\t||Q3:",Q3,"\t||IQR:",IQR_deger,"\n", sep = "")
-  cat("Alt sınır\t\t:",alt_sinir,"\n", sep = "")
-  cat("Üst sınır\t\t:",ust_sinir,"\n", sep = "")
-  cat("Aykırı değer sayısı\t:", length(aykiri),"\n", sep = "")
+  cat("Lower Limit\t\t:",alt_sinir,"\n", sep = "")
+  cat("Upper Limit\t\t:",ust_sinir,"\n", sep = "")
+  cat("Number of Outliers\t:", length(aykiri),"\n", sep = "")
   if(length(aykiri)>0) {
-    cat ("Aykırı değerler\t\t:",paste(aykiri, collapse=","),"\n", sep = "")
+    cat ("Outliers\t\t:",paste(aykiri, collapse=","),"\n", sep = "")
   }else{
-    cat("Aykırı değerler\t\t:Yok\n")
+    cat("Outliers\t\t:Yok\n")
   }
   cat("******************************************************\n")
   
   #5)Grafik
   if(isTRUE(grafik)){
-    boxplot(veri,main="Boxplot(Tukey Aykırı Değer Analizi)",ylab="Değer")
+    boxplot(veri,main="Boxplot(Tukey Outliers Analysis)",ylab="Value")
     abline(h=c(alt_sinir,ust_sinir),lty=2)
   }
   
@@ -51,70 +71,4 @@ aykiri_deger_analizi<-function(veri,grafik=FALSE){
     )))
   
   
-}
-
-#' @title Tukey IQR Yöntemi ile Aykırı Değer Tespiti
-#'
-#' @description
-#' Bu fonksiyon, bir sayısal veri vektörü üzerinde Tukey'nin çeyrekler arası
-#' açıklık (Interquartile Range, IQR) yöntemini kullanarak aykırı değerleri
-#' tespit eder. İlk çeyrek (Q1), üçüncü çeyrek (Q3) ve çeyrekler arası açıklık
-#' (IQR) hesaplanarak alt ve üst sınırlar belirlenir. Bu sınırların dışında
-#' kalan gözlemler aykırı değer olarak sınıflandırılır ve indeksleri ile birlikte
-#' raporlanır.
-#'
-#' @param x A numeric vector. Aykırı değer analizi uygulanacak sayısal veri vektörüdür.
-#' @param k A numeric scalar. Alt ve üst sınırların belirlenmesinde kullanılan
-#' eşik katsayısıdır. Varsayılan değer \code{1.5}'tir.
-#'
-#' @return
-#' A list containing:
-#' \itemize{
-#'   \item \code{alt_sinir}: Hesaplanan alt sınır değeri.
-#'   \item \code{ust_sinir}: Hesaplanan üst sınır değeri.
-#'   \item \code{aykiri_degerler}: Vektörde tespit edilen aykırı değerler.
-#'   \item \code{indisler}: Aykırı değerlerin vektördeki indeksleri.
-#' }
-#'
-#' @seealso
-#' \code{\link[stats:quantile]{quantile}},
-#' \code{\link[grDevices:boxplot.stats]{boxplot.stats}}
-#'
-#' @examples
-#' # Örnek 1: Normal dağılıma yakın veri
-#' set.seed(123)
-#' veri1 <- rnorm(100, mean = 50, sd = 10)
-#' tespit_et_outlier(veri1)
-#'
-#' # Örnek 2: Kesin aykırı değer içeren veri
-#' veri2 <- c(10, 12, 11, 13, 12, 14, 15, 11, 12, 200)
-#' tespit_et_outlier(veri2)
-#'
-#' # Örnek 3: Daha hassas eşik
-#' tespit_et_outlier(veri2, k = 1)
-#'
-#' @importFrom stats quantile IQR
-#' @export
-#' 
-tespit_et_outlier<-function(x,k=1.5){
-  if (!is.numeric(x)){
-    stop ("x sayisal bir vektor olmalidir.")
-  }
-  if(!is.numeric(k)||length(k)!=1||is.na(k)||k<=0){
-    stop("k pozitif, tek bir sayisal deger olmalidir.")
-  }
-  Q1=as.numeric(quantile(x, probs=0.25,na.rm=TRUE,names=FALSE))
-  Q3=as.numeric(quantile(x, probs=0.75,na.rm=TRUE,names=FALSE))
-  IQR_deger=IQR(x,na.rm=TRUE)
-  alt_sinir=Q1-k*IQR_deger
-  ust_sinir=Q3+k*IQR_deger
-  
-  indisler=which(!is.na(x)& (x<alt_sinir|x>ust_sinir))
-  aykiri_degerler=x[indisler]
-  return(list(
-    alt_sinir=alt_sinir,
-    ust_sinir=ust_sinir,
-    aykiri_degerler=aykiri_degerler,
-    indisler=indisler
-  ))
 }
