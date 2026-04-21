@@ -1,0 +1,102 @@
+---
+title: "Data Analysis with istatistikPaketim"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Data Analysis with istatistikPaketim}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  fig.width = 7,
+  fig.height = 5
+)
+```
+
+```{r setup, message=FALSE, warning=FALSE}
+library(istatistikPaketim)
+library(knitr)
+```
+
+
+## Introduction
+
+This vignette shows how to use the `istatistikPaketim` package in a simple way.
+
+In this guide, we will:
+
+1. Look at the dataset
+   - check the first 10 rows
+   - understand the variables
+2. Show the data in a table
+3. Calculate the mean
+4. Make a simple plot
+5. Give a short explanation
+
+> A good vignette does not only show code, but also helps users understand the idea.
+
+
+The mean can be written as $\bar{x} = \frac{\sum x_i}{n}$.
+$$
+\bar{x} = \frac{x_1 + x_2 + \cdots + x_n}{n}
+$$
+
+
+```{r}
+ogrenci_notlari <- data.frame(
+  ogrenci = paste("Student", 1:30),
+  matematik_notu = c(70, 75, 82, 68, 90, 85, 77, 88, 73, 80,
+                     76, 84, 79, 91, 67, 74, 86, 81, 72, 89,
+                     78, 83, 69, 87, 71, 92, 66, 82, 75, 88),
+  fizik_notu = c(65, 70, 80, 66, 89, 84, 75, 86, 72, 79,
+                 74, 82, 77, 90, 64, 73, 85, 80, 70, 88,
+                 76, 81, 68, 86, 69, 91, 63, 79, 74, 87),
+  kimya_notu = c(72, 74, 81, 69, 91, 83, 76, 87, 71, 78,
+                 75, 85, 80, 92, 68, 72, 84, 82, 73, 90,
+                 77, 83, 70, 88, 74, 93, 67, 81, 76, 89)
+)
+```
+
+## Explore the Dataset
+
+
+```{r}
+knitr::kable(
+  head(ogrenci_notlari, 10),
+  caption = "Table 1: First 10 rows of ogrenci_notlari",
+  align = c("l", "c", "c", "c")
+  )
+```
+
+## Mean Analysis
+
+```{r}
+mean_value <- mean(ogrenci_notlari$matematik_notu, na.rm = TRUE)
+mean_value
+```
+
+The average mathematics score shows the general performance of students in this dataset. Most students have scores around the middle range, which indicates that the overall performance is relatively stable without extreme variation.
+
+## Visualization
+```{r, fig.cap="Figure 1: Distribution of mathematics scores"}
+hist(
+  ogrenci_notlari$matematik_notu,
+  breaks = 5,
+  main = "Distribution of Mathematics Scores",
+  xlab = "Score",
+  col = "lightblue",
+  border = "white",
+  cex.main = 0.9
+)
+
+```
+
+
+From this plot, we can see how the values are spread and if there are any extreme values.
+
+## Conclusion
+
+In this vignette, we looked at the dataset, showed it in a table, calculated the mean, and made a simple plot. These steps help us understand the data in an easy way.
