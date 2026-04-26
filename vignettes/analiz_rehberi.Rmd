@@ -1,6 +1,9 @@
 ---
 title: "Data Analysis with istatistikPaketim"
-output: rmarkdown::html_vignette
+output:
+  rmarkdown::html_vignette:
+    toc: true
+    toc_depth: 2
 vignette: >
   %\VignetteIndexEntry{Data Analysis with istatistikPaketim}
   %\VignetteEngine{knitr::rmarkdown}
@@ -16,87 +19,262 @@ knitr::opts_chunk$set(
 )
 ```
 
-```{r setup, message=FALSE, warning=FALSE}
+```{r setup, include=FALSE}
 library(istatistikPaketim)
 library(knitr)
+library(kableExtra)
+library(ggplot2)
+
+load("../data/ogrenci_notlari.rda")
+load("../data/temiz_penguinler.rda")
 ```
 
 
 ## Introduction
 
-This vignette shows how to use the `istatistikPaketim` package in a simple way.
+This vignette demonstrates how to use the `istatistikPaketim` package for basic data analysis.
 
-In this guide, we will:
+The package includes datasets and functions for statistical analysis, visualization, and outlier detection.
 
-1. Look at the dataset
-   - check the first 10 rows
-   - understand the variables
-2. Show the data in a table
-3. Calculate the mean
-4. Make a simple plot
-5. Give a short explanation
+This guide aims to show how the package can be used in a simple and practical way.
 
 > A good vignette does not only show code, but also helps users understand the idea.
 
+## Installation
+
+To use the `istatistikPaketim` package, it must first be installed from GitHub.
+
+```{r eval=FALSE}
+install.packages("devtools")
+devtools::install_github("nkhnurkholifah-maker/istatistikPaketim")
+library(istatistikPaketim)
+```
+
+## Package Contents
+
+The `istatistikPaketim` package contains two example datasets and two main functions.
+
+The first dataset is `ogrenci_notlari`. This dataset contains students' mathematics, physics, and chemistry scores. It is used for basic statistical analysis such as mean, median, t-test, and outlier detection.
+
+The second dataset is `temiz_penguinler`. This dataset contains cleaned penguin data and can be used for simple data exploration and visualization.
+
+The package also includes two outlier detection functions. The function `aykiri_deger_analizi()` is used to detect outliers and can also show a warning when the input data is not suitable for analysis. The function `tespit_et_outlier()` is another simple function for finding outlier values in numeric data.
+
+Before using these functions, users should make sure that the input is numeric. If text or non-numeric data is entered, the function may give a warning or error.
+
+
+## Basic Statistical Concepts
+
+In statistics, several basic measures are commonly used to understand data. These include mean, median, and standard deviation.
+
+The **mean (average)** shows the central value of the data.
 
 The mean can be written as $\bar{x} = \frac{\sum x_i}{n}$.
+
 $$
 \bar{x} = \frac{x_1 + x_2 + \cdots + x_n}{n}
 $$
 
+The **median** is the middle value when the data is sorted.
 
-```{r}
-ogrenci_notlari <- data.frame(
-  ogrenci = paste("Student", 1:30),
-  matematik_notu = c(70, 75, 82, 68, 90, 85, 77, 88, 73, 80,
-                     76, 84, 79, 91, 67, 74, 86, 81, 72, 89,
-                     78, 83, 69, 87, 71, 92, 66, 82, 75, 88),
-  fizik_notu = c(65, 70, 80, 66, 89, 84, 75, 86, 72, 79,
-                 74, 82, 77, 90, 64, 73, 85, 80, 70, 88,
-                 76, 81, 68, 86, 69, 91, 63, 79, 74, 87),
-  kimya_notu = c(72, 74, 81, 69, 91, 83, 76, 87, 71, 78,
-                 75, 85, 80, 92, 68, 72, 84, 82, 73, 90,
-                 77, 83, 70, 88, 74, 93, 67, 81, 76, 89)
-)
-```
+The **standard deviation** shows how spread out the values are from the mean.
+
+Another important concept is the **Interquartile Range (IQR)**, which is used to detect outliers.
+
+$$
+IQR = Q3 - Q1
+$$
+
 
 ## Explore the Dataset
 
 
 ```{r}
+rata_matematik <- mean(ogrenci_notlari$matematik_notu)
+rata_fizik <- mean(ogrenci_notlari$fizik_notu)
+rata_kimya <- mean(ogrenci_notlari$kimya_notu)
+
+ogrenci_notlari_style <- ogrenci_notlari
+
+ogrenci_notlari_style$matematik_notu <- kableExtra::cell_spec(
+  ogrenci_notlari$matematik_notu,
+  format = "html",
+  color = ifelse(ogrenci_notlari$matematik_notu < rata_matematik, "red", "green"),
+  bold = TRUE
+)
+
+ogrenci_notlari_style$fizik_notu <- kableExtra::cell_spec(
+  ogrenci_notlari$fizik_notu,
+  format = "html",
+  color = ifelse(ogrenci_notlari$fizik_notu < rata_fizik, "red", "green"),
+  bold = TRUE
+)
+
+ogrenci_notlari_style$kimya_notu <- kableExtra::cell_spec(
+  ogrenci_notlari$kimya_notu,
+  format = "html",
+  color = ifelse(ogrenci_notlari$kimya_notu < rata_kimya, "red", "green"),
+  bold = TRUE
+)
+
 knitr::kable(
-  head(ogrenci_notlari, 10),
-  caption = "Table 1: First 10 rows of ogrenci_notlari",
-  align = c("l", "c", "c", "c")
+  ogrenci_notlari_style,
+  format = "html",
+  escape = FALSE,
+  caption = "Table 1: Student Scores Colored by Average"
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center",
+    bootstrap_options = c("striped", "hover", "condensed")
+  )
+```
+In this table, red values show scores below the average, while green values show scores equal to or above the average.
+
+```{r}
+knitr::kable(
+  head(temiz_penguinler, 10),
+  caption = "Table 2: First 10 rows of temiz_penguinler"
+)%>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center",
+    bootstrap_options = c("striped", "hover", "condensed")
   )
 ```
 
-## Mean Analysis
+## Basic Statistical Analysis
 
 ```{r}
-mean_value <- mean(ogrenci_notlari$matematik_notu, na.rm = TRUE)
-mean_value
+summary_table <- data.frame(
+  Variable = c("Mathematics", "Physics", "Chemistry"),
+  Count = c(
+    length(ogrenci_notlari$matematik_notu),
+    length(ogrenci_notlari$fizik_notu),
+    length(ogrenci_notlari$kimya_notu)
+  ),
+  Mean = c(
+    mean(ogrenci_notlari$matematik_notu),
+    mean(ogrenci_notlari$fizik_notu),
+    mean(ogrenci_notlari$kimya_notu)
+  ),
+  Median = c(
+    median(ogrenci_notlari$matematik_notu),
+    median(ogrenci_notlari$fizik_notu),
+    median(ogrenci_notlari$kimya_notu)
+  ),
+  SD = c(
+    sd(ogrenci_notlari$matematik_notu),
+    sd(ogrenci_notlari$fizik_notu),
+    sd(ogrenci_notlari$kimya_notu)
+  ),
+  Min = c(
+    min(ogrenci_notlari$matematik_notu),
+    min(ogrenci_notlari$fizik_notu),
+    min(ogrenci_notlari$kimya_notu)
+  ),
+  Max = c(
+    max(ogrenci_notlari$matematik_notu),
+    max(ogrenci_notlari$fizik_notu),
+    max(ogrenci_notlari$kimya_notu)
+  )
+)
+
+knitr::kable(
+  summary_table,
+  digits = 2,
+  caption = "Table 3: Summary Statistics of Student Scores"
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center",
+    bootstrap_options = c("striped", "hover", "condensed")
+  )
+```
+This table summarizes the main statistical measures of student scores, including mean, median, standard deviation, minimum, and maximum values.
+
+
+```{r}
+penguin_summary <- data.frame(
+  Variable = "Bill Length",
+  Count = sum(!is.na(temiz_penguinler$bill_length_mm)),
+  Mean = mean(temiz_penguinler$bill_length_mm, na.rm = TRUE),
+  Median = median(temiz_penguinler$bill_length_mm, na.rm = TRUE),
+  SD = sd(temiz_penguinler$bill_length_mm, na.rm = TRUE),
+  Min = min(temiz_penguinler$bill_length_mm, na.rm = TRUE),
+  Max = max(temiz_penguinler$bill_length_mm, na.rm = TRUE)
+)
+
+knitr::kable(
+  penguin_summary,
+  digits = 2,
+  caption = "Table 4: Summary Statistics of Penguin Bill Length"
+) %>%
+  kableExtra::kable_styling(
+    full_width = FALSE,
+    position = "center",
+    bootstrap_options = c("striped", "hover", "condensed")
+    )
 ```
 
-The average mathematics score shows the general performance of students in this dataset. Most students have scores around the middle range, which indicates that the overall performance is relatively stable without extreme variation.
+This table shows the summary statistics of penguin bill length, which helps to understand the distribution of the data.
+
+### T-test Analysis
+
+```{r}
+t_result <- t.test(ogrenci_notlari$matematik_notu, mu = 70)
+t_result
+```
+This test evaluates whether the average mathematics score is significantly different from 70.
+
 
 ## Visualization
 ```{r, fig.cap="Figure 1: Distribution of mathematics scores"}
 hist(
-  ogrenci_notlari$matematik_notu,
+  as.numeric(ogrenci_notlari$matematik_notu),
   breaks = 5,
   main = "Distribution of Mathematics Scores",
   xlab = "Score",
   col = "lightblue",
-  border = "white",
-  cex.main = 0.9
+  border = "white"
 )
 
 ```
 
 
-From this plot, we can see how the values are spread and if there are any extreme values.
+```{r, fig.cap="Figure 2: Relationship between flipper length and body mass"}
+ggplot(temiz_penguinler, aes(x = bill_length_mm, fill = species)) +
+  geom_density(alpha = 0.5) +
+  labs(
+    title = "Distribution of Bill Length by Species",
+    x = "Bill Length (mm)",
+    y = "Density"
+  ) +
+  theme_minimal()
+```
+
+
+The histogram shows the distribution of student scores, while the density plot illustrates how values are distributed across penguin species.
+
+
+## Outlier Detection with Package Functions
+
+In this section, the outlier detection functions in the package are used with student score data. The function is applied to `matematik_notu`, which is a numeric column from the `ogrenci_notlari` data frame.
+
+```{r}
+aykiri_deger_analizi(ogrenci_notlari$matematik_notu)
+```
+
+The `aykiri_deger_analizi()` function checks whether there are outlier values in the mathematics scores.
+
+```{r}
+tespit_et_outlier(ogrenci_notlari$matematik_notu)
+```
+
+The `tespit_et_outlier()` function also detects outlier values. These functions help users check the data before doing further statistical analysis.
+
+If the user gives non-numeric input, the function may give a warning. Therefore, numeric data should be used for this analysis.
 
 ## Conclusion
 
-In this vignette, we looked at the dataset, showed it in a table, calculated the mean, and made a simple plot. These steps help us understand the data in an easy way.
+In this vignette, we introduced the datasets included in the package and demonstrated basic statistical analysis such as mean, median, and t-test. We also showed how to visualize data and detect outliers using the functions provided in the package. This helps users understand how to apply the package in real data analysis.
